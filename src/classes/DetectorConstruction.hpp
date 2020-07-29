@@ -21,11 +21,10 @@ namespace SoEiXRS {
 class DetectorConstruction: public G4VUserDetectorConstruction {
 
 public:
-	DetectorConstruction(double distanceSourceFilter,
-			double distanceFilterDetect, double filtCollSize, double detSize,
-			std::vector<std::tuple<std::string, double>> filterMaterials);
+	DetectorConstruction();
 
 	inline G4LogicalVolume* GetScoringVolume() const { return scoringVolume; }
+	inline G4LogicalVolume* GetBlockingVolume() const { return blockingVolume; }
 
 	G4VPhysicalVolume* Construct();
 
@@ -36,12 +35,10 @@ protected:
 private:
 	G4NistManager* nist;
 
-	const G4double world_sizeXY;
-	const G4double world_sizeZ;
-
 	G4VPhysicalVolume* physWorld;
 
 	G4LogicalVolume* scoringVolume = NULL;
+	G4LogicalVolume* blockingVolume = NULL;
 };
 
 } /* namespace SoEiXRS */

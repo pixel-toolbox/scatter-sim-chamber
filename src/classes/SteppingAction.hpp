@@ -13,18 +13,28 @@ class G4LogicalVolume;
 
 namespace SoEiXRS {
 
-class SteppingAction : public G4UserSteppingAction {
+struct energyPositionInformation {
+	inline energyPositionInformation(double x, double y, double energyInkeV) :
+			x(x), y(y), energyInkeV(energyInkeV) {
+	}
+	double x, y; // in meter
+	double energyInkeV;
+};
 
-	public:
-		SteppingAction();
-		virtual ~SteppingAction();
+class SteppingAction: public G4UserSteppingAction {
 
-		virtual void UserSteppingAction(const G4Step*);
+public:
+	SteppingAction();
+	virtual ~SteppingAction();
 
-	    std::vector<double>* resultVector = NULL;
+	virtual void UserSteppingAction(const G4Step*);
 
-	private:
-	    G4LogicalVolume* fScoringVolume = NULL;
+	std::vector<energyPositionInformation>* resultElectronPosEnergy = NULL;
+	std::vector<energyPositionInformation>* resultPhotonPosEnergy = NULL;
+
+private:
+	G4LogicalVolume* fScoringVolume = NULL;
+	G4LogicalVolume* blockingVolume = NULL;
 };
 
 } /* namespace SoEiXRS */

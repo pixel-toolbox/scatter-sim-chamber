@@ -17,45 +17,40 @@
 
 namespace SoEiXRS {
 
-PrimaryGeneratorAction::PrimaryGeneratorAction(double energy, double energyFluc,
-		double sourcePosition, double filtCollSize) :
-		G4VUserPrimaryGeneratorAction(), fParticleGun(0), fEnvelopeBox(0), de(
-				time(0)), nd(energy-energyFluc, energy + energyFluc), ud(
-				-atan(filtCollSize / (2 * sourcePosition)),
-				+atan(filtCollSize / (2 * sourcePosition))), sourcePosition(
-				sourcePosition), filtCollSize(filtCollSize) {
-	G4int n_particle = PARTICLES_IN_GUN;
+PrimaryGeneratorAction::PrimaryGeneratorAction() :
+		G4VUserPrimaryGeneratorAction(), fParticleGun(0), de(
+				time(0))/*, directDist(-3.14, +3.14)*/ {
+	fParticleGun = new G4GeneralParticleSource();
+	/*G4int n_particle = PARTICLES_IN_GUN;
 	fParticleGun = new G4ParticleGun(n_particle);
 
 	G4ParticleDefinition* particle = G4Gamma::GammaDefinition();
 	fParticleGun->SetParticleDefinition(particle);
 	fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0., 0., 1.));
 	fParticleGun->SetParticlePosition(
-			G4ThreeVector(0, 0, -sourcePosition * cm));
+			G4ThreeVector(0, 0, -0.5*m));*/
 }
 
 PrimaryGeneratorAction::~PrimaryGeneratorAction() {
 	delete fParticleGun;
 }
 
-void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent) {
-	double energy = abs(nd(de) * keV);
+/*void PrimaryGeneratorAction::setEnergy(double energy) {
 	fParticleGun->SetParticleEnergy(energy);
+}*/
 
-	double angle_x = 3.14;
+void PrimaryGeneratorAction::GeneratePrimaries(G4Event* anEvent) {
+	/*double angle_x = 3.14;
 	double angle_y = 3.14;
 
-	do {
-		angle_x = ud(de);
-		angle_y = ud(de);
-	} while(sqrt(angle_x*angle_x+angle_y*angle_y) > atan(filtCollSize / (2 * sourcePosition)));
+	angle_x = directDist(de);
+	angle_y = directDist(de);
 
 	double vec_x = sin(angle_x);
 	double vec_y = sin(angle_y);
 	double vec_z = 1-sqrt(vec_x*vec_x+vec_y*vec_y);
 
-	//fParticleGun->SetParticleMomentumDirection(G4ThreeVector(vec_x, vec_y, vec_z));
-	fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0, 0, 1.));
+	fParticleGun->SetParticleMomentumDirection(G4ThreeVector(vec_x, vec_y, vec_z));*/
 	fParticleGun->GeneratePrimaryVertex(anEvent);
 }
 

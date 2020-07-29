@@ -2,20 +2,24 @@
 
 namespace SoEiXRS {
 
-DetectorConstruction::DetectorConstruction(double distanceSourceFilter,
-		double distanceFilterDetect, double filtCollSize, double detSize,
-		std::vector<std::tuple<std::string, double>> filterMaterials) :
-		G4VUserDetectorConstruction(), nist(G4NistManager::Instance()), world_sizeXY(
-				filtCollSize * 3 * cm), world_sizeZ(
-				std::max(distanceSourceFilter, distanceFilterDetect) * 2.1 * cm) {
+DetectorConstruction::DetectorConstruction() :
+		G4VUserDetectorConstruction(), nist(G4NistManager::Instance()) {
+
+	double world_sizeXY = 2*m;
+	double world_sizeZ = 10*m;
+
+	/*Die Wandstärke ist 30mm (Edelstahl)
+	 * die Abmessungen sind 2m x 1m
+	 * mit einer Höhe von ca. 1m*/
+
+	double wall_thickness = 30*mm;
+	double size_x = 0.5*m;
+	double size_y = 0.5*m;
+	double size_z = 1*m;
 
 	/// https://books.google.de/books?id=8REhrrTKZKwC&pg=PA25#v=onepage&q&f=false
 
-	double a = 1.01 * g / mole;
-	G4Element* elH = new G4Element("Hydrogen", "H", 1., a);
-	a = 12.01 * g / mole;
-	G4Element* elC = new G4Element("Carbon", "C", 6., a);
-	a = 14.01 * g / mole;
+	double a = 14.01 * g / mole;
 	G4Element* elN = new G4Element("Nitrogen", "N", 7., a);
 	a = 16.00 * g / mole;
 	G4Element* elO = new G4Element("Oxygen", "O", 8., a);
@@ -25,15 +29,9 @@ DetectorConstruction::DetectorConstruction(double distanceSourceFilter,
 	air->AddElement(elN, 78.084 * perCent);
 	air->AddElement(elO, 20.942 * perCent);
 
-	density = 1.19 * g / cm3;
-	G4Material* Acrylic = new G4Material("PMMA", density, 3);
-	Acrylic->AddElement(elC, 5);
-	Acrylic->AddElement(elH, 8);
-	Acrylic->AddElement(elO, 2);
-
 	density = 1.290 * mg / cm3;
 	G4Material* vac = new G4Material("CustomVacuum", density, 2, kStateGas,
-			293.15 * kelvin, atmosphere / ((double) pow(10, 6)));
+			293.15 * kelvin, atmosphere / ((double) pow(10, (5+3))));
 	vac->AddElement(elN, 78.084 * perCent);
 	vac->AddElement(elO, 20.942 * perCent);
 
@@ -44,51 +42,43 @@ DetectorConstruction::DetectorConstruction(double distanceSourceFilter,
 	physWorld = new G4PVPlacement(0, G4ThreeVector(), logicWorld,
 			"WorldPhysVolume", 0, false, 0, true);
 
-	double current_z_pos = 0 * mm;
-	/// build the filter
-	for (auto t : filterMaterials) {
-		auto thickness = std::get<1>(t) * mm;
-		current_z_pos += thickness / 1.9;
+	auto steel = nist->FindOrBuildMaterial("G4_STAINLESS-STEEL");
 
-		auto prefix = "Target_" + std::get<0>(t) + "_"
-				+ std::to_string(thickness) + "_";
-
-		G4Box* target_box = new G4Box(prefix + "box", filtCollSize * 2 * cm,
-				filtCollSize * 2 * cm, thickness / 2);
-
-		std::string material = std::get<0>(t);
-		G4Material* target_mat;
-
-		if (material == "pmma") {
-			target_mat = Acrylic;
-		} else {
-			target_mat = nist->FindOrBuildMaterial(material);
-		}
-
-		G4LogicalVolume* target_vol = new G4LogicalVolume(target_box,
-				target_mat, prefix + "vol");
-		G4VPhysicalVolume* target_physvol = new G4PVPlacement(0,
-				G4ThreeVector(0, 0, current_z_pos), target_vol,
-				prefix + "physVol", logicWorld, false, 0, true);
-		current_z_pos += thickness / 1.9;
-	}
+	/// build the vacuum walls
+	G4Box* vac_wall_box = new G4Box("VacChamberWallBox", size_x+wall_thickness,
+			size_y+wall_thickness, size_z+wall_thickness);
+	G4LogicalVolume* vac_wall_vol = new G4LogicalVolume(vac_wall_box, steel,
+			"VacChamberWallVolume");
+	G4VPhysicalVolume* vac_wall_physvol = new G4PVPlacement(0,
+			G4ThreeVector(0, 0, -size_z), vac_wall_vol,
+			"VacChamberWallPhysVolume", logicWorld, false, 0, true);
 
 	/// build the vacuum chamber
-	G4Box* vac_box = new G4Box("VacChamberBox", filtCollSize * 2 * cm,
-			filtCollSize * 2 * cm, distanceSourceFilter * cm);
+	G4Box* vac_box = new G4Box("VacChamberBox", size_x,
+			size_y, size_z);
 	G4LogicalVolume* vac_vol = new G4LogicalVolume(vac_box, vac,
 			"VacChamberVolume");
 	G4VPhysicalVolume* vac_physvol = new G4PVPlacement(0,
-			G4ThreeVector(0, 0, -distanceSourceFilter * cm), vac_vol,
-			"VacChamberPhysVolume", logicWorld, false, 0, true);
+			G4ThreeVector(0, 0, 0), vac_vol,
+			"VacChamberPhysVolume", vac_wall_vol, false, 0, true);
+
+	auto led = nist->FindOrBuildMaterial("G4_Pb");
+	/// block where the filter would be
+	G4Box* vac_blocker_box = new G4Box("VacBlockerBox", 4*cm,
+			4*cm, wall_thickness/2);
+	G4LogicalVolume* vac_blocker_vol = new G4LogicalVolume(vac_blocker_box, led,
+			"VacBlockerVolume");
+	G4VPhysicalVolume* vac_blocker_physvol = new G4PVPlacement(0,
+			G4ThreeVector(0, 0, size_z+wall_thickness/2), vac_blocker_vol,
+			"VacBlockerPhysVolume", vac_wall_vol, false, 0, true);
 
 	/// build detector
-	G4Box* det_box = new G4Box("DetectorBox", (detSize / 2) * cm,
-			(detSize / 2) * cm, .5 * mm);
+	G4Box* det_box = new G4Box("DetectorBox", world_sizeXY*0.49,
+			world_sizeXY*0.49, .5 * mm);
 	G4LogicalVolume* det_vol = new G4LogicalVolume(det_box,
 			nist->FindOrBuildMaterial("G4_Si"), "DetectorVolume");
 	G4VPhysicalVolume* det_physvol = new G4PVPlacement(0,
-			G4ThreeVector(0, 0, distanceFilterDetect * cm), det_vol,
+			G4ThreeVector(0, 0, 3.75*m-0.5*m), det_vol,
 			"DetectorPhysVolume", logicWorld, false, 0, true);
 
 	scoringVolume = det_vol;

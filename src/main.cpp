@@ -19,66 +19,7 @@ namespace fs = std::experimental::filesystem;
 
 using namespace SoEiXRS;
 
-namespace SoEiXRS {
-enum {
-	energyScan, collimatorScan
-} task;
-}
-
 int main(int argc, char* argv[]) {
-
-	if (argc < 9) {
-		std::cout << "Expects at least 9 arguments: " << std::endl;
-		std::cout << "  task - \"energyScan\" or \"collimatorScan\"";
-		std::cout << "  output file" << std::endl;
-		std::cout << "  max energy [keV] or only Energy for collimatorScan" << std::endl;
-		std::cout << "  bin size [keV] or [cm] for collimatorScan" << std::endl;
-		std::cout << "  distance source - filter [cm]" << std::endl;
-		std::cout << "  distance filter - detector [cm]" << std::endl;
-		std::cout << "  filter / collimator size [cm]" << std::endl;
-		std::cout << "  detector size [cm] (assuming a square detector)" << std::endl;
-		std::cout << " *Filter Material, e.g. G4_W, G4_Mo, G4_Au" << std::endl;
-		std::cout << " *Filter Thickness [mm]" << std::endl;
-		std::cout << "  repeat * n>=1 times" << std::endl;
-		return 0;
-	}
-
-	std::string strTask = argv[2];
-	if (strTask == "energyScan") {
-		task = energyScan;
-	} else if (strTask == "energyScan") {
-		task = collimatorScan;
-	}
-	std::string outputFileName = argv[2];
-	double maxEnergy = std::stod(argv[3]);
-	double binSize = std::stod(argv[4]);
-	double distanceSourceFilter = std::stod(argv[5]);
-	double distanceFilterDetect = std::stod(argv[6]);
-	double filtCollSize = std::stod(argv[7]);
-	double detSize = std::stod(argv[8]);
-
-	std::vector<std::tuple<std::string, double>> filterMaterials;
-
-	for (int i = 9; i<argc; i++) {
-		std::string material = argv[i];
-		i++;
-		double thickness = std::stod(argv[i]);
-		filterMaterials.push_back({material, thickness});
-	}
-
-	std::cout << "writing to \"" << outputFileName << "\" ..." << std::endl;
-	std::cout << "#initial data:" << std::endl;
-	std::cout << "#  maxEnergy="            << maxEnergy << "keV" << std::endl;
-	std::cout << "#  binSize="              << binSize << "keV" << std::endl;
-	std::cout << "#  distanceSourceFilter=" << distanceSourceFilter << "cm" << std::endl;
-	std::cout << "#  distanceFilterDetect=" << distanceFilterDetect << "cm" << std::endl;
-	std::cout << "#  filtCollSize="         << filtCollSize << "cm" << std::endl;
-	std::cout << "#  detSize="              << detSize << "cm" << std::endl;
-	std::cout << "# Filter Materials=[" << std::endl;
-	for (auto f : filterMaterials) {
-		std::cout << "#   " << std::get<0>(f) << ", " << std::get<1>(f) << "mm" << std::endl;
-	}
-	std::cout << "#  ]" << std::endl;
 
 	// construct the default run manager
 	G4RunManager* runManager = new G4RunManager();
@@ -86,10 +27,8 @@ int main(int argc, char* argv[]) {
 	// set mandatory initialization classes
 	G4VModularPhysicsList* physicsList = new FTFP_BERT;
 	runManager->SetUserInitialization(physicsList);
-	runManager->SetUserInitialization(new DetectorConstruction(distanceSourceFilter, distanceFilterDetect,
-			filtCollSize, detSize, filterMaterials));
-	ActionInitialization* actionInitialization = new ActionInitialization(1, 0.5,
-			distanceSourceFilter, filtCollSize);
+	runManager->SetUserInitialization(new DetectorConstruction());
+	ActionInitialization* actionInitialization = new ActionInitialization();
 	runManager->SetUserInitialization(actionInitialization);
 
 	// get the pointer to the UI manager and set verbosities
@@ -101,98 +40,84 @@ int main(int argc, char* argv[]) {
 	UI->ApplyCommand("/cuts/setLowEdge 250 eV");
 	UI->ApplyCommand("/process/em/fluo true");
 
-	// initialize G4 kernel
 	runManager->Initialize();
+
 
 	/*G4VisManager* visManager = new G4VisExecutive;
 	visManager->Initialise();
-
 	UI->ApplyCommand("/control/execute vis.mac");
-	//UI->ApplyCommand("/vis/scene/endOfEventAction accumulate 1");
 	UI->ApplyCommand("/vis/verbosity 2");*/
 
 	PrimaryGeneratorAction* primaryGeneratorAction = actionInitialization->getPrimaryGeneratorAction();
 
 	SteppingAction* steppingAction = actionInitialization->getSteppingAction();
 
-	switch (task) {
-	case energyScan: {
+	int energies[] = {50, 75, 100, 150, 200, 300, 500, 1000, 2000, 3000};
+	std::vector<std::string> incomingParticleType = {"gamma", "e-"};
 
-		std::vector<std::vector<double>> responseMatrix;
+	UI->ApplyCommand("/control/execute setup.mac");
+	for (int energy : energies) {
+		for (std::string particleType : incomingParticleType) {
+			std::cout << energy << "keV " << particleType << "s:";
+			std::cout.flush();
 
-		responseMatrix.push_back(std::vector<double>(maxEnergy / binSize, 0));
+			std::vector<energyPositionInformation> resultElectronPosEnergy;
+			std::vector<energyPositionInformation> resultPhotonPosEnergy;
 
-		for (double inputEnergy = binSize; inputEnergy < maxEnergy;
-				inputEnergy += binSize) {
+			resultElectronPosEnergy.reserve(1000);
+			resultPhotonPosEnergy.reserve(1000);
 
-			std::vector<double>* resultVector = new std::vector<double>();
+			steppingAction->resultElectronPosEnergy = &resultElectronPosEnergy;
+			steppingAction->resultPhotonPosEnergy = &resultPhotonPosEnergy;
 
-			steppingAction->resultVector = resultVector;
+			//primaryGeneratorAction->setEnergy(energy);
+			UI->ApplyCommand("/gps/ene/mono " + std::to_string(energy) + " keV");
+			UI->ApplyCommand("/gps/particle " + particleType);
 
-			primaryGeneratorAction->nd = std::uniform_real_distribution<double>(
-					inputEnergy - (binSize / 2), inputEnergy + (binSize / 2));
-
-			std::cout << "current energy: " << inputEnergy << "keV"
-					<< std::endl;
 			int runs = 1000;
 			for (int r = 0; r < runs; r++) {
 				// start a run
-				if (r % 100 == 0) {
+				if (r % 10 == 0) {
 					std::cout << ".";
 					std::cout.flush();
 				}
-				runManager->BeamOn(1);
+				runManager->BeamOn(1000);
+
+				/*std::string s;
+
+				std::cout << "done >";
+				std::cout.flush();
+				std::cin >> s;*/
 			}
 
-			std::vector<double> outputVec(maxEnergy / binSize, 0);
+			std::cout << std::endl << "writing output file ..." << std::endl;
 
-			for (auto d : *resultVector) {
-				int pos = (d + binSize / 2.) / binSize;
+			std::ofstream output_electron_file(
+					"output_" + particleType + "_" + std::to_string(energy) + "keV.ele.dat");
+			std::ofstream output_photon_file(
+					"output_" + particleType + "_" + std::to_string(energy) + "keV.pho.dat");
 
-				if (pos >= 0 && pos < outputVec.size()) {
-					outputVec.at(pos) += 1;
-				}
+			for (auto res : resultElectronPosEnergy) {
+				output_electron_file << res.x << " " << res.y << " "
+						<< res.energyInkeV << std::endl;
 			}
-			responseMatrix.push_back(outputVec);
 
-			//UI->ApplyCommand("/vis/viewer/rebuild");
-			//UI->ApplyCommand("/vis/viewer/flush");
-			std::cout << "  --> count = " << resultVector->size() << " / "
-					<< (PARTICLES_IN_GUN * runs) << std::endl;
-			delete (resultVector);
+			for (auto res : resultPhotonPosEnergy) {
+				output_photon_file << res.x << " " << res.y << " "
+						<< res.energyInkeV << std::endl;
+			}
+
+			output_electron_file.close();
+			output_photon_file.close();
 		}
-
-		std::cout << "writing output file" << std::endl;
-		std::ofstream outputFile(outputFileName);
-
-		for (auto line : responseMatrix) {
-			for (auto d : line) {
-				outputFile << d << " ";
-			}
-			outputFile << std::endl;
-		}
-
-		outputFile.close();
-
-		break;
-	}
-	case collimatorScan: {
-
-		break;
-	}
-	default:
-		std::cout << "cannot detect task" << std::endl;
 	}
 
-	std::string s;
 
-	std::cin >> s;
-	/*while (s != "exit" && s != "e") {
-		//std::cin >> s;
-		//UI->ApplyCommand(s);
-		runManager->BeamOn(numberOfEvent);
-		//UI->ApplyCommand("/vis/viewer/rebuild");
-	}*/
+	/*std::string s;
+
+	std::cout << "done >";
+	std::cout.flush();
+	std::cin >> s;*/
 
 	// job termination
 	delete runManager;

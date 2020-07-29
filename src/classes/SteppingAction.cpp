@@ -14,31 +14,55 @@
 
 namespace SoEiXRS {
 
-SteppingAction::SteppingAction(){}
+SteppingAction::SteppingAction() {
+}
 
-SteppingAction::~SteppingAction() {}
+SteppingAction::~SteppingAction() {
+}
 
 void SteppingAction::UserSteppingAction(const G4Step* step) {
 	if (!fScoringVolume) {
 		const DetectorConstruction* detectorConstruction =
 				static_cast<const DetectorConstruction*>(G4RunManager::GetRunManager()->GetUserDetectorConstruction());
 		fScoringVolume = detectorConstruction->GetScoringVolume();
+		blockingVolume = detectorConstruction->GetBlockingVolume();
 	}
 
+	G4StepPoint* thisStep = step->GetPostStepPoint();
+	if (thisStep == NULL)
+		return;
+	const G4TouchableHandle postStepPoint = thisStep->GetTouchableHandle();
+	G4VPhysicalVolume* touchableHandle = postStepPoint->GetVolume();
+	if (touchableHandle == NULL)
+		return;
+
 	// get volume of the current step
-	G4LogicalVolume* volume =
-			step->GetPreStepPoint()->GetTouchableHandle()->GetVolume()->GetLogicalVolume();
+	G4LogicalVolume* volume = touchableHandle->GetLogicalVolume();
+	if (volume == NULL)
+		return;
+
+	// check if we are in the blocking volume
+	if (volume == blockingVolume) {
+		step->GetTrack()->SetTrackStatus(fStopAndKill);
+		return;
+	}
 
 	// check if we are in scoring volume
 	if (volume != fScoringVolume)
 		return;
 
-	auto energy = step->GetTrack()->GetKineticEnergy() / keV;
+	auto energy = step->GetPreStepPoint()->GetKineticEnergy() / keV;
+	auto x = step->GetTrack()->GetPosition().x() / m;
+	auto y = step->GetTrack()->GetPosition().y() / m;
 
-	//std::cout << energy << std::endl;
-	resultVector->push_back(energy);
-
-	//std::cout << "energy: " << energy << std::endl;
+	if (step->GetTrack()->GetDefinition() == G4Gamma::GammaDefinition()) {
+		resultPhotonPosEnergy->push_back( { x, y, energy });
+	} else if (step->GetTrack()->GetDefinition()
+			== G4Electron::ElectronDefinition()) {
+		resultElectronPosEnergy->push_back( { x, y, energy });
+	} else {
+		std::cout << "???? energy: " << energy << std::endl;
+	}
 
 	step->GetTrack()->SetTrackStatus(fStopAndKill);
 }

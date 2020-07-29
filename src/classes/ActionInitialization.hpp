@@ -10,8 +10,7 @@ namespace SoEiXRS {
 
 class ActionInitialization: public G4VUserActionInitialization {
 public:
-	ActionInitialization(double energy, double energyFluc,
-			double sourcePosition, double filtCollSize);
+	ActionInitialization();
 
 	virtual void Build() const;
 

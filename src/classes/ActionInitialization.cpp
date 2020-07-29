@@ -2,11 +2,9 @@
 
 namespace SoEiXRS {
 
-ActionInitialization::ActionInitialization(double energy, double energyFluc,
-		double sourcePosition, double filtCollSize) :
+ActionInitialization::ActionInitialization() :
 		primaryGeneratorAction(
-				new PrimaryGeneratorAction(energy, energyFluc, sourcePosition,
-						filtCollSize)), steppingAction(new SteppingAction()) {
+				new PrimaryGeneratorAction()), steppingAction(new SteppingAction()) {
 }
 
 void ActionInitialization::Build() const {

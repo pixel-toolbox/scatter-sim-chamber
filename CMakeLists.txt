@@ -1,4 +1,4 @@
-project(scatter-sim)
+project(scatter-sim-chamber)
 cmake_minimum_required(VERSION 2.8)
 
 # put binary output in bin/ subdirectory
@@ -70,12 +70,12 @@ set(SOURCES
 )
 
 # add object files to be compiled
-add_executable(scatter-sim ${SOURCES})
-target_link_libraries(scatter-sim ${Geant4_LIBRARIES})
-target_link_libraries(scatter-sim "stdc++fs")# "c++experimental")
+add_executable(scatter-sim-chamber ${SOURCES})
+target_link_libraries(scatter-sim-chamber ${Geant4_LIBRARIES})
+target_link_libraries(scatter-sim-chamber "stdc++fs")# "c++experimental")
 
 link_directories(/opt/lib/)
-target_link_libraries(scatter-sim
+target_link_libraries(scatter-sim-chamber
     #"AllpixCore"
     "Core"
 	"G4zlib"

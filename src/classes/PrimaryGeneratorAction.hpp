@@ -3,6 +3,7 @@
 
 #include "G4VUserPrimaryGeneratorAction.hh"
 #include "G4ParticleGun.hh"
+#include "G4GeneralParticleSource.hh"
 #include "globals.hh"
 
 #include <random>
@@ -15,27 +16,25 @@ namespace SoEiXRS {
 
 class PrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction {
   public:
-    PrimaryGeneratorAction(double energy, double energyFluc, double sourcePosition, double filtCollSize);
+    PrimaryGeneratorAction();
     virtual ~PrimaryGeneratorAction();
 
     // method from the base class
     virtual void GeneratePrimaries(G4Event*);         
   
     // method to access particle gun
-    const G4ParticleGun* GetParticleGun() const { return fParticleGun; }
+    // const G4ParticleGun* GetParticleGun() const { return fParticleGun; }
 
-    std::uniform_real_distribution<double> nd;
+	// std::uniform_real_distribution<double> directDist;
+
+	void setEnergy(double energy);
 
   private:
-    G4ParticleGun*  fParticleGun; // pointer a to G4 gun class
-    G4Box* fEnvelopeBox;
+	G4GeneralParticleSource* fParticleGun;
+    //G4ParticleGun*  fParticleGun; // pointer a to G4 gun class
+    //G4Box* fEnvelopeBox;
 
     std::default_random_engine de; // the rng for the energy
-
-	std::uniform_real_distribution<double> ud;
-
-	double sourcePosition;
-	double filtCollSize;
 };
 
 } /* namespace SoEiXRS */
